@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+jobs:
+  build:
+    permissions: write-all #for dependabot auto PR - create a test report
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: docker-compose.yml
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4.2.2
+        with:
+          java-version: '21'
+          distribution: 'corretto'
+      - name: "docker compose up"
+        run: docker compose -f docker-compose.yml up -d --wait
+      - name: Build by Maven & Run Tests
+        run: mvn clean install
+      - name: dynamodb-local JUnit Test Report
+        uses: dorny/test-reporter@v1.9.1 #{owner}/{repository}@{ref}
+        if: (success() || failure())
+        with:
+          name: Tests  #for analysis tests report
+          path: target/surefire-reports/*.xml
+          reporter: java-junit
+          fail-on-error: true
+
+      - name: Generate build number
+        id: buildnumber
+        uses: einaregilsson/build-number@v3
+        with:
+          token: ${{secrets.github_token}}
+
+      # Now you can pass ${{ steps.buildnumber.outputs.build_number }} to the next steps.
+      - name: Another step as an example
+        uses: actions/hello-world-docker-action@v1
+        with:
+          who-to-greet: ${{ steps.buildnumber.outputs.build_number }}
+      - name: Output Run ID
+        run: echo ${{ github.run_id }}
+      - name: Output Run Number
+        run: echo ${{ github.run_number }}
+      - name: Output Run Attempt
+        run: echo ${{ github.run_attempt }}

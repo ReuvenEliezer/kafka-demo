@@ -1,0 +1,16 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: @project.artifactId@
+  output:
+    ansi:
+      enabled: always
+  kafka:
+    admin:
+      auto-create: true
+    bootstrap-servers: host.docker.internal:29092
+    topic: "my-topic-name"
+    consumer:
+      auto-offset-reset: earliest
+      group-id: myId
