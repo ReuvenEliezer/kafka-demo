@@ -33,7 +33,7 @@ public class KafkaConsumer {
     @RetryableTopic(
             attempts = "3",
 //            kafkaTemplate = "kafkaTemplate",
-//            backoff = @org.springframework.kafka.annotation.Backoff(delay = 1000, multiplier = 2),
+//            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2),
             dltTopicSuffix = "-dlt",
 //            dltTopicSuffix = ".DLT",
             autoCreateTopics = "true"
@@ -56,16 +56,8 @@ public class KafkaConsumer {
         acknowledgment.acknowledge();
     }
 
-    @DltHandler(
-//            topics = "${spring.kafka.topic}" + ".DLT",
-//            topics = "${spring.kafka.topic}" + "-dlt",
-//            topics = "${spring.kafka.topic}",
-//            groupId = "${spring.kafka.consumer.group-id}"
-//            ,
-//            errorHandler = "defaultErrorHandler"
-    )
+    @DltHandler
     public void dltListen(@Payload MyEvent message,
-//                          @Header(KafkaHeaders.ACKNOWLEDGMENT) Acknowledgment acknowledgment,
                           @Header(KafkaHeaders.OFFSET) int offSet,
                           @Header(KafkaHeaders.RECEIVED_TOPIC) String topicName,
                           @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId

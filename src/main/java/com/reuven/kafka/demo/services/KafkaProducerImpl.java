@@ -30,38 +30,21 @@ public class KafkaProducerImpl implements KafkaProducer {
     }
 
     @Override
-    public Integer sendMessage(String msg, boolean isThrowException){
+    public Integer sendMessage(String msg, boolean isThrowException) {
         try {
+            int msgNum = counter.incrementAndGet();
             RecordMetadata metadata = kafkaTemplate
-                    .send(topicName, new MyEvent(msg, counter.incrementAndGet(), isThrowException))
+                    .send(topicName, new MyEvent(msg, msgNum, isThrowException))
                     .get()
                     .getRecordMetadata();
 
-            logger.info("Sent message=[{}] with offset=[{}] on partition {}",
-                    msg + counter.get(), metadata.offset(), metadata.partition());
-
-            return counter.get();
-        } catch (InterruptedException | ExecutionException ex) {
-            logger.error("Unable to send message=[{}] due to: {}", msg, ex.getMessage());
-            throw new RuntimeException(ex);
+            logger.info("Sent message=[{}] msgNum[{}] with offset=[{}] on partition {}",
+                    msg, msgNum, metadata.offset(), metadata.partition());
+            return msgNum;
+        } catch (Exception e) {
+            logger.error("failed to sending message=[{}] due to: {}", msg, e.getMessage());
+            throw new RuntimeException(e);
         }
-
-//        ListenableFuture<SendResult<String, MyEvent>> future = kafkaTemplate.send(topicName, (msg + counter.incrementAndGet()).getBytes(StandardCharsets.UTF_8));
-//
-//        future.addCallback(new ListenableFutureCallback<SendResult<String, MyEvent>>() {
-//
-//            @Override
-//            public void onSuccess(SendResult<String, MyEvent> result) {
-//                logger.info("Sent message=[{}] with offset=[{}]", msg + counter.get(), result.getRecordMetadata().offset());
-//            }
-//
-//            @Override
-//            public void onFailure(Throwable ex) {
-//                logger.error("Unable to send message=[{}] due to: {}", msg, ex.getMessage());
-//                throw new RuntimeException(ex);
-//            }
-//        });
-//        return counter.get();
     }
 
 }
