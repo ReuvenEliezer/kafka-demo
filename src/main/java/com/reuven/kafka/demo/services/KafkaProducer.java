@@ -1,5 +1,7 @@
 package com.reuven.kafka.demo.services;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface KafkaProducer {
-    Integer sendMessage(String msg, boolean isThrowException);
+    CompletableFuture<Integer> sendMessage(String msg, boolean isThrowException);
 }

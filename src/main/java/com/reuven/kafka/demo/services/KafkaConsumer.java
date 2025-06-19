@@ -1,7 +1,6 @@
 package com.reuven.kafka.demo.services;
 
 import com.reuven.kafka.demo.entities.MyEvent;
-import com.reuven.kafka.demo.utils.WsAddressConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.kafka.annotation.DltHandler;
@@ -18,12 +17,6 @@ import org.springframework.web.client.RestClient;
 public class KafkaConsumer {
 
     private static final Logger logger = LogManager.getLogger(KafkaConsumer.class);
-
-    private final RestClient restClient;
-
-    public KafkaConsumer(RestClient restClient) {
-        this.restClient = restClient;
-    }
 
     @KafkaListener(
             topics = "${spring.kafka.topic}",
@@ -49,10 +42,6 @@ public class KafkaConsumer {
             logger.error("Simulating an error for testing purposes - this will trigger the DLT");
             throw new RuntimeException("Simulated error for testing purposes - this will trigger the DLT");
         }
-        restClient.post()
-                .uri(WsAddressConstants.sendPayloadUrl)
-                .body(msg);
-
         acknowledgment.acknowledge();
     }
 

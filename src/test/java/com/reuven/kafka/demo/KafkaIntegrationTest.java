@@ -1,6 +1,9 @@
 package com.reuven.kafka.demo;
 
+import com.reuven.kafka.demo.entities.MyEvent;
 import com.reuven.kafka.demo.services.KafkaProducer;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +13,11 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,11 +31,14 @@ public class KafkaIntegrationTest {
     void test(){
         assertThat(true).isTrue();
     }
-
+//
 //    private static final String TOPIC = "test-topic";
+//    @Autowired
+//    private KafkaProducer producerService;
 //
 //    @Container
-//    public static KafkaContainer kafkaContainer = new KafkaContainer("confluentinc/cp-kafka:7.6.0")
+//    public static final KafkaContainer kafkaContainer = new KafkaContainer( DockerImageName.parse("confluentinc/cp-kafka:7.2.15")
+//            .asCompatibleSubstituteFor("apache/kafka"))
 //            .withEnv("KAFKA_ENABLE_KRAFT", "yes")
 //            .withEnv("KAFKA_CFG_NODE_ID", "1")
 //            .withEnv("KAFKA_CFG_PROCESS_ROLES", "broker,controller")
@@ -41,24 +49,44 @@ public class KafkaIntegrationTest {
 //            .withEnv("KAFKA_CFG_INTER_BROKER_LISTENER_NAME", "PLAINTEXT")
 //            .withEnv("ALLOW_PLAINTEXT_LISTENER", "yes");
 //
-//    @Autowired
-//    private KafkaProducer producerService;
 //
-//    private final BlockingQueue<String> records = new ArrayBlockingQueue<>(10);
+//    @BeforeAll
+//    static void setup() {
+//        kafkaContainer.start();
+//        System.setProperty("spring.kafka.bootstrap-servers", kafkaContainer.getBootstrapServers());
+//        System.setProperty("spring.kafka.topic", TOPIC);
+//    }
+//
+//    @AfterAll
+//    static void tearDown() {
+//        kafkaContainer.stop();
+//        System.clearProperty("spring.kafka.bootstrap-servers");
+//        System.clearProperty("spring.kafka.topic");
+//    }
+//
+//
+//    private final BlockingQueue<MyEvent> records = new ArrayBlockingQueue<>(10);
 //
 //    @KafkaListener(topics = TOPIC, groupId = "test-group")
-//    public void listen(String message) {
-//        records.add(message);
+//    public void listen(MyEvent event) {
+//        records.add(event);
 //    }
 //
 //    @Test
-//    void testSendReceive() throws InterruptedException {
-//        // Use kafkaContainer bootstrap servers for config override if needed
+//    void testSendReceive() throws Exception {
 //        String testMessage = "Hello Testcontainers";
+//        boolean isThrowException = false;
 //
-//        producerService.sendMessage(testMessage);
+//        // Use async call
+//        CompletableFuture<Integer> future = producerService.sendMessage(testMessage, isThrowException);
 //
-//        String received = records.poll(10, TimeUnit.SECONDS);
-//        assertThat(received).isEqualTo(testMessage);
+//        // Wait until the send is done
+//        future.join();
+//
+//        // Poll received message
+//        MyEvent received = records.poll(10, TimeUnit.SECONDS);
+//        assertThat(received).isNotNull();
+//        assertThat(received.msg()).startsWith(testMessage);
 //    }
+
 }

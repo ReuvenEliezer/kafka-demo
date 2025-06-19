@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.concurrent.CompletableFuture;
+
 @RestController
 @RequestMapping("messages")
 public class MsgController {
@@ -19,8 +21,8 @@ public class MsgController {
     }
 
     @PostMapping("/sendMessage")
-    public Integer sendMessage(@RequestBody String msg,
-                               @RequestParam(required = false, defaultValue = "false") boolean isThrowException) {
+    public CompletableFuture<Integer> sendMessage(@RequestBody String msg,
+                                                  @RequestParam(required = false, defaultValue = "false") boolean isThrowException) {
         return kafkaProducer.sendMessage(msg, isThrowException);
     }
 

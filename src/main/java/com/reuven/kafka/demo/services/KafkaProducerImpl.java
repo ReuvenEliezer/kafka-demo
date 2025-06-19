@@ -8,8 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -17,7 +17,7 @@ public class KafkaProducerImpl implements KafkaProducer {
 
     private static final Logger logger = LogManager.getLogger(KafkaProducerImpl.class);
 
-    private final AtomicInteger counter = new AtomicInteger(0);
+    private final AtomicInteger counter = new AtomicInteger(1);
 
     private final KafkaTemplate<String, MyEvent> kafkaTemplate;
 
@@ -30,21 +30,20 @@ public class KafkaProducerImpl implements KafkaProducer {
     }
 
     @Override
-    public Integer sendMessage(String msg, boolean isThrowException) {
-        try {
-            int msgNum = counter.incrementAndGet();
-            RecordMetadata metadata = kafkaTemplate
-                    .send(topicName, new MyEvent(msg, msgNum, isThrowException))
-                    .get()
-                    .getRecordMetadata();
-
-            logger.info("Sent message=[{}] msgNum[{}] with offset=[{}] on partition {}",
-                    msg, msgNum, metadata.offset(), metadata.partition());
-            return msgNum;
-        } catch (Exception e) {
-            logger.error("failed to sending message=[{}] due to: {}", msg, e.getMessage());
-            throw new RuntimeException(e);
-        }
+    public CompletableFuture<Integer> sendMessage(String msg, boolean isThrowException) {
+        int msgNum = counter.getAndIncrement();
+        MyEvent event = new MyEvent(msg, msgNum, isThrowException);
+        return kafkaTemplate.send(topicName, event)
+                .thenApply(result -> {
+                    RecordMetadata metadata = result.getRecordMetadata();
+                    logger.info("Sent async message='{}' msgNum={} offset={} partition={}",
+                            msg, msgNum, metadata.offset(), metadata.partition());
+                    return msgNum;
+                })
+                .exceptionally(ex -> {
+                    logger.error("Async send failed for msg='{}': {}", msg, ex.getMessage(), ex);
+                    throw new CompletionException(ex);
+                });
     }
 
 }
