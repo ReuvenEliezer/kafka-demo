@@ -1,5 +1,6 @@
 package com.reuven.kafka.demo.services;
 
+import com.reuven.kafka.demo.entities.MyEvent;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,21 +19,21 @@ public class KafkaProducerImpl implements KafkaProducer {
 
     private final AtomicInteger counter = new AtomicInteger(0);
 
-    private final KafkaTemplate<String, byte[]> kafkaTemplate;
+    private final KafkaTemplate<String, MyEvent> kafkaTemplate;
 
     private final String topicName;
 
-    public KafkaProducerImpl(KafkaTemplate<String, byte[]> kafkaTemplate,
+    public KafkaProducerImpl(KafkaTemplate<String, MyEvent> kafkaTemplate,
                              @Value(value = "${spring.kafka.topic}") String topicName) {
         this.kafkaTemplate = kafkaTemplate;
         this.topicName = topicName;
     }
 
     @Override
-    public Integer sendMessage(String msg){
+    public Integer sendMessage(String msg, boolean isThrowException){
         try {
             RecordMetadata metadata = kafkaTemplate
-                    .send(topicName, (msg + counter.incrementAndGet()).getBytes(StandardCharsets.UTF_8))
+                    .send(topicName, new MyEvent(msg, counter.incrementAndGet(), isThrowException))
                     .get()
                     .getRecordMetadata();
 
@@ -45,12 +46,12 @@ public class KafkaProducerImpl implements KafkaProducer {
             throw new RuntimeException(ex);
         }
 
-//        ListenableFuture<SendResult<String, byte[]>> future = kafkaTemplate.send(topicName, (msg + counter.incrementAndGet()).getBytes(StandardCharsets.UTF_8));
+//        ListenableFuture<SendResult<String, MyEvent>> future = kafkaTemplate.send(topicName, (msg + counter.incrementAndGet()).getBytes(StandardCharsets.UTF_8));
 //
-//        future.addCallback(new ListenableFutureCallback<SendResult<String, byte[]>>() {
+//        future.addCallback(new ListenableFutureCallback<SendResult<String, MyEvent>>() {
 //
 //            @Override
-//            public void onSuccess(SendResult<String, byte[]> result) {
+//            public void onSuccess(SendResult<String, MyEvent> result) {
 //                logger.info("Sent message=[{}] with offset=[{}]", msg + counter.get(), result.getRecordMetadata().offset());
 //            }
 //

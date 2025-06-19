@@ -1,5 +1,7 @@
 package com.reuven.kafka.demo.config;
 
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import com.reuven.kafka.demo.entities.MyEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -31,7 +33,9 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, Integer.MAX_VALUE);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, MyEvent.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset); //earliest or latest
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false); //TODO Remove if you want Kafka to automatically acknowledge // https://stackoverflow.com/questions/46325540/how-to-use-spring-kafkas-acknowledgement-acknowledge-method-for-manual-commit
         return new DefaultKafkaConsumerFactory<>(props);
@@ -51,7 +55,7 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public DefaultErrorHandler defaultErrorHandler(KafkaTemplate<String, byte[]> template) {
+    public DefaultErrorHandler defaultErrorHandler(KafkaTemplate<String, MyEvent> template) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template,
                 (r, e) ->
                         new TopicPartition(r.topic() + ".DLT", r.partition()));

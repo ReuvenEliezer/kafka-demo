@@ -1,5 +1,6 @@
 package com.reuven.kafka.demo.controllers;
 
+import com.reuven.kafka.demo.entities.MyEvent;
 import com.reuven.kafka.demo.services.KafkaProducer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,14 +18,10 @@ public class MsgController {
         this.kafkaProducer = kafkaProducer;
     }
 
-    @GetMapping(value = "sendMessage/{msg}")
-    public Integer sendMessage(@PathVariable String msg) {
-        return kafkaProducer.sendMessage(msg);
-    }
-
-    @PostMapping(value = "payload")
-    public void receivedPayload(@RequestBody byte[] msg) {
-        logger.info("receivedPayload: {}", new String(msg));
+    @PostMapping("/sendMessage")
+    public Integer sendMessage(@RequestBody String msg,
+                               @RequestParam(required = false, defaultValue = "false") boolean isThrowException) {
+        return kafkaProducer.sendMessage(msg, isThrowException);
     }
 
 }

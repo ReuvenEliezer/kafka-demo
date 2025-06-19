@@ -1,5 +1,6 @@
 package com.reuven.kafka.demo.services;
 
+import com.reuven.kafka.demo.entities.MyEvent;
 import com.reuven.kafka.demo.utils.WsAddressConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,20 +38,20 @@ public class KafkaConsumer {
 //            dltTopicSuffix = ".DLT",
             autoCreateTopics = "true"
     )
-    public void listen(@Payload byte[] message,
+    public void listen(@Payload MyEvent msg,
                        @Header(KafkaHeaders.ACKNOWLEDGMENT) Acknowledgment acknowledgment,
                        @Header(KafkaHeaders.OFFSET) int offSet,
                        @Header(KafkaHeaders.RECEIVED_TOPIC) String topicName,
                        @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId) {
-        logger.info("Received Message {} on topic: {}, partitionId: {} offSet={}", new String(message), topicName, partitionId, offSet);
+        logger.info("Received Message {} on topic: {}, partitionId: {} offSet={}", msg, topicName, partitionId, offSet);
 
-        if (true) {
+        if (msg.isThrowException()) {
             logger.error("Simulating an error for testing purposes - this will trigger the DLT");
             throw new RuntimeException("Simulated error for testing purposes - this will trigger the DLT");
         }
         restClient.post()
                 .uri(WsAddressConstants.sendPayloadUrl)
-                .body(message);
+                .body(msg);
 
         acknowledgment.acknowledge();
     }
@@ -63,14 +64,14 @@ public class KafkaConsumer {
 //            ,
 //            errorHandler = "defaultErrorHandler"
     )
-    public void dltListen(@Payload byte[] message,
+    public void dltListen(@Payload MyEvent message,
 //                          @Header(KafkaHeaders.ACKNOWLEDGMENT) Acknowledgment acknowledgment,
                           @Header(KafkaHeaders.OFFSET) int offSet,
                           @Header(KafkaHeaders.RECEIVED_TOPIC) String topicName,
                           @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId
     ) {
         logger.warn("DLT - ########### - Received Message {} on topic: {}, partitionId: {} offSet={}",
-                new String(message), topicName, partitionId, offSet
+                message, topicName, partitionId, offSet
         );
     }
 

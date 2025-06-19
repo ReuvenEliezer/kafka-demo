@@ -9,8 +9,17 @@ spring:
   kafka:
     admin:
       auto-create: true
-    bootstrap-servers: host.docker.internal:29092
+    bootstrap-servers: localhost:29092
     topic: "my-topic-name"
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+          spring.json.trusted.packages: "*"
+          spring.json.value.default.type: com.reuven.kafka.demo.entities.MyEvent
     consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.reuven.kafka.demo.entities.MyEvent
       auto-offset-reset: earliest
       group-id: myId

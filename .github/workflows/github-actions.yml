@@ -21,7 +21,7 @@ jobs:
         run: docker compose -f docker-compose.yml up -d --wait
       - name: Build by Maven & Run Tests
         run: mvn clean install
-      - name: dynamodb-local JUnit Test Report
+      - name: kafka-demo JUnit Test Report
         uses: dorny/test-reporter@v1.9.1 #{owner}/{repository}@{ref}
         if: (success() || failure())
         with:

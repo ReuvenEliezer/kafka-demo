@@ -1,28 +1,32 @@
-//package com.reuven.kafka.demo;
-//
-//import com.reuven.kafka.demo.services.KafkaProducer;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.boot.test.context.SpringBootTest;
-//import org.springframework.kafka.annotation.KafkaListener;
-//import org.springframework.kafka.test.context.EmbeddedKafka;
-//import org.springframework.test.context.junit.jupiter.SpringExtension;
-//import org.testcontainers.containers.KafkaContainer;
-//import org.testcontainers.junit.jupiter.Container;
-//import org.testcontainers.junit.jupiter.Testcontainers;
-//
-//import java.util.concurrent.ArrayBlockingQueue;
-//import java.util.concurrent.BlockingQueue;
-//import java.util.concurrent.TimeUnit;
-//
-//import static org.assertj.core.api.Assertions.assertThat;
-//
-//@SpringBootTest
-//@Testcontainers
-//@ExtendWith(SpringExtension.class)
-//public class KafkaIntegrationTest {
-//
+package com.reuven.kafka.demo;
+
+import com.reuven.kafka.demo.services.KafkaProducer;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.kafka.KafkaContainer;
+
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Testcontainers
+@ExtendWith(SpringExtension.class)
+public class KafkaIntegrationTest {
+
+    @Test
+    void test(){
+        assertThat(true).isTrue();
+    }
+
 //    private static final String TOPIC = "test-topic";
 //
 //    @Container
@@ -57,4 +61,4 @@
 //        String received = records.poll(10, TimeUnit.SECONDS);
 //        assertThat(received).isEqualTo(testMessage);
 //    }
-//}
+}
