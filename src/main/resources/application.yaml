@@ -23,3 +23,4 @@ spring:
         spring.json.value.default.type: "${spring.kafka.producer.properties.spring.json.value.default.type}"
       auto-offset-reset: earliest
       group-id: myId
+      suffix: ".DLT"# "-dlt" default

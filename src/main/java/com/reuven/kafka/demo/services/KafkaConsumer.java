@@ -11,7 +11,6 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 @Service
 public class KafkaConsumer {
@@ -26,7 +25,7 @@ public class KafkaConsumer {
     @RetryableTopic(
             attempts = "3",
 //            kafkaTemplate = "kafkaTemplate",
-//            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2),
+            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2),
             dltTopicSuffix = "-dlt",
 //            dltTopicSuffix = ".DLT",
             autoCreateTopics = "true"
@@ -39,21 +38,38 @@ public class KafkaConsumer {
         logger.info("Received Message {} on topic: {}, partitionId: {} offSet={}", msg, topicName, partitionId, offSet);
 
         if (msg.isThrowException()) {
-            logger.error("Simulating an error for testing purposes - this will trigger the DLT");
-            throw new RuntimeException("Simulated error for testing purposes - this will trigger the DLT");
+            String errorMsg = String.format("Simulating an error for testing purposes - this will trigger the DLT for message: %s", msg);
+            logger.error(errorMsg);
+            throw new RuntimeException(errorMsg);
         }
         acknowledgment.acknowledge();
     }
 
+    //DLT handler must be in the same class bean as the listener
     @DltHandler
     public void dltListen(@Payload MyEvent message,
                           @Header(KafkaHeaders.OFFSET) int offSet,
                           @Header(KafkaHeaders.RECEIVED_TOPIC) String topicName,
-                          @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId
+                          @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId,
+                          @Header(KafkaHeaders.EXCEPTION_MESSAGE) String errorMessage,
+                          @Header(KafkaHeaders.EXCEPTION_STACKTRACE) String stackTrace
     ) {
-        logger.warn("DLT - ########### - Received Message {} on topic: {}, partitionId: {} offSet={}",
-                message, topicName, partitionId, offSet
+        logger.warn("DLT - ########### - Received Message {} on topic: {}, partitionId: {} offSet={}, errorMessage: {}, stackTrace: {}",
+                message, topicName, partitionId, offSet, errorMessage, stackTrace
         );
     }
+
+// Uncomment the following method if you want to handle DLT messages in a separate method and in different class. + comment the @RetryableTopic() from consumer
+// @KafkaListener(
+//            topics = "${spring.kafka.topic}" + "${spring.kafka.consumer.suffix}",
+//            groupId = "${spring.kafka.consumer.group-id}")
+//    public void dltListen(@Payload MyEvent message,
+//                          @Header(KafkaHeaders.OFFSET) int offSet,
+//                          @Header(KafkaHeaders.RECEIVED_TOPIC) String topicName,
+//                          @Header(KafkaHeaders.RECEIVED_PARTITION) String partitionId) {
+//        logger.warn("DLT - ########### - Received Message {} on topic: {}, partitionId: {} offSet={}",
+//                message, topicName, partitionId, offSet
+//        );
+//    }
 
 }

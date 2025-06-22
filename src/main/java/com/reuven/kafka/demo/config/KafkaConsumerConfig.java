@@ -55,10 +55,12 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public DefaultErrorHandler defaultErrorHandler(KafkaTemplate<String, MyEvent> template) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template,
+    public DefaultErrorHandler defaultErrorHandler(KafkaTemplate<String, MyEvent> template,
+                                                   @Value("${spring.kafka.consumer.suffix}") String dltSuffix) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template
+                ,
                 (r, e) ->
-                        new TopicPartition(r.topic() + ".DLT", r.partition()));
+                        new TopicPartition(r.topic() + dltSuffix, r.partition()));
         // retry delay = 0ms, maxAttempts = 2 (1 attempt + 1 retry)
         FixedBackOff backOff = new FixedBackOff(1000L, 2);
         return new DefaultErrorHandler(recoverer, backOff);
