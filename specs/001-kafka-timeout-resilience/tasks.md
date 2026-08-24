@@ -102,6 +102,8 @@ Single project: `src/main/java/com/reuven/kafka/demo/`, `src/test/java/com/reuve
 - [X] T015 Fix `S3CircuitBreakerIntegrationTest`'s Kafka container: replace the `confluentinc/cp-kafka` image + Bitnami-style env vars (incompatible with the modern `org.testcontainers.kafka.KafkaContainer` class) with `apache/kafka:3.7.1` in [S3CircuitBreakerIntegrationTest.java](../../src/test/java/com/reuven/kafka/demo/S3CircuitBreakerIntegrationTest.java) — found and fixed during validation
 - [X] T016 Run `quickstart.md` automated validation (`mvn test -Dtest=S3CircuitBreakerIntegrationTest`) — **passing** as of the T002/T015 fixes
 
+- [X] T017 Leave the `DefaultErrorHandler`/`DeadLetterPublishingRecoverer` bean in [KafkaConsumerConfig.java](../../src/main/java/com/reuven/kafka/demo/config/KafkaConsumerConfig.java) commented out and unwired — documented as an intentional placeholder for a possible future alternate DLT path (uses `spring.kafka.consumer.suffix=".DLT"`), distinct from the `@RetryableTopic`-driven `"-dlt"` path on `KafkaConsumer.listen(...)` that actually handles retry/DLT for this feature (see data-model.md's Message Failure section and [plan.md](./plan.md)'s file list). No functional change — this task only records the decision so the dead code isn't mistaken for unfinished or accidental scope creep.
+
 **Checkpoint**: Feature verified end-to-end via `mvn test -Dtest=S3CircuitBreakerIntegrationTest` (BUILD SUCCESS)
 
 ---

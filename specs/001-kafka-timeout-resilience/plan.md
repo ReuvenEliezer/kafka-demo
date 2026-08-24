@@ -55,7 +55,7 @@ specs/001-kafka-timeout-resilience/
 ```text
 src/main/java/com/reuven/kafka/demo/
 ├── config/
-│   ├── KafkaConsumerConfig.java          # Consumer factory, listener container factory, DLT error handler
+│   ├── KafkaConsumerConfig.java          # Consumer factory, listener container factory. Also carries a commented-out, unwired DefaultErrorHandler/DeadLetterPublishingRecoverer bean — an intentional placeholder for a possible future alternate DLT path; @RetryableTopic on KafkaConsumer.listen(...) is the one actually driving retry/DLT behavior today (see data-model.md's Message Failure section).
 │   ├── KafkaBackpressureController.java  # Subscribes to circuit breaker state-transition events; pauses/resumes the listener container
 │   └── S3Config.java                     # S3Client bean with bounded api-call-timeout/api-call-attempt-timeout
 ├── services/
