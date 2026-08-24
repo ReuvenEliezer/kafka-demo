@@ -1,46 +1,41 @@
-server:
-  port: 8080
 spring:
   application:
-    name: @project.artifactId@
-  output:
-    ansi:
-      enabled: always
+    name: kafka-demo-test
   kafka:
     admin:
       auto-create: true
-    bootstrap-servers: localhost:29092
-    topic: "my-topic-name"
+    bootstrap-servers: localhost:9092
+    topic: "test-topic"
     producer:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-          spring.json.trusted.packages: com.reuven.kafka.demo.entities
-          spring.json.value.default.type: com.reuven.kafka.demo.entities.MyEvent
+        spring.json.trusted.packages: com.reuven.kafka.demo.entities
+        spring.json.value.default.type: com.reuven.kafka.demo.entities.MyEvent
     consumer:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "${spring.kafka.producer.properties.spring.json.trusted.packages}"
         spring.json.value.default.type: "${spring.kafka.producer.properties.spring.json.value.default.type}"
       auto-offset-reset: earliest
-      group-id: myId
-      suffix: ".DLT"# "-dlt" default
+      group-id: test-group
+      suffix: ".DLT"
 
 aws:
   s3:
     region: us-east-1
-    bucket: kafka-demo-events
-    endpoint: # set to a LocalStack/test endpoint to override the default AWS endpoint
-    api-call-timeout: 10s
+    bucket: kafka-demo-events-test
+    endpoint:
+    api-call-timeout: 1s
 
 resilience4j:
   circuitbreaker:
     instances:
       s3Upload:
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
+        sliding-window-size: 4
+        minimum-number-of-calls: 4
         failure-rate-threshold: 50
-        wait-duration-in-open-state: 15s
-        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 3s
+        permitted-number-of-calls-in-half-open-state: 2
         automatic-transition-from-open-to-half-open-enabled: true
         record-exceptions:
           - software.amazon.awssdk.core.exception.SdkClientException

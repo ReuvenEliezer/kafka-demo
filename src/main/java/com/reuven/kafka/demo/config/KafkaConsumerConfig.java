@@ -3,8 +3,6 @@ package com.reuven.kafka.demo.config;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import com.reuven.kafka.demo.entities.MyEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,11 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
-import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -43,27 +37,15 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
-            ConsumerFactory<String, Object> consumerFactory,
-            DefaultErrorHandler defaultErrorHandler
+            ConsumerFactory<String, Object> consumerFactory
     ) {
         ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE); //TODO Remove if you want Kafka to automatically acknowledge
         factory.setConcurrency(1);
-        factory.setCommonErrorHandler(defaultErrorHandler);
+        // Retry/DLT handling for this listener is driven by @RetryableTopic on KafkaConsumer.listen(...),
+        // not a CommonErrorHandler here.
         return factory;
-    }
-
-    @Bean
-    public DefaultErrorHandler defaultErrorHandler(KafkaTemplate<String, MyEvent> template,
-                                                   @Value("${spring.kafka.consumer.suffix}") String dltSuffix) {
-        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(template
-                ,
-                (r, e) ->
-                        new TopicPartition(r.topic() + dltSuffix, r.partition()));
-        // retry delay = 0ms, maxAttempts = 2 (1 attempt + 1 retry)
-        FixedBackOff backOff = new FixedBackOff(1000L, 2);
-        return new DefaultErrorHandler(recoverer, backOff);
     }
 
 }

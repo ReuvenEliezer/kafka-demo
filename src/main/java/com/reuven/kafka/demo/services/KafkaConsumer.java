@@ -15,9 +15,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class KafkaConsumer {
 
+    public static final String LISTENER_ID = "myEventListener";
+
     private static final Logger logger = LogManager.getLogger(KafkaConsumer.class);
 
+    private final S3EventArchiveService s3EventArchiveService;
+
+    public KafkaConsumer(S3EventArchiveService s3EventArchiveService) {
+        this.s3EventArchiveService = s3EventArchiveService;
+    }
+
     @KafkaListener(
+            id = LISTENER_ID,
             topics = "${spring.kafka.topic}",
             groupId = "${spring.kafka.consumer.group-id}",
             containerFactory = "kafkaListenerContainerFactory"
@@ -42,6 +51,7 @@ public class KafkaConsumer {
             logger.error(errorMsg);
             throw new RuntimeException(errorMsg);
         }
+        s3EventArchiveService.archive(msg);
         acknowledgment.acknowledge();
     }
 
