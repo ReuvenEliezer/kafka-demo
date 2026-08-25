@@ -5,11 +5,13 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.event.CircuitBreakerOnStateTransitionEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "copy.consumer.strategy", havingValue = "inline", matchIfMissing = true)
 public class KafkaBackpressureController {
 
     private static final Logger logger = LogManager.getLogger(KafkaBackpressureController.class);

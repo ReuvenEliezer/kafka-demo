@@ -26,5 +26,42 @@ services:
       retries: 10
       start_period: 20s
 
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: kafka_demo
+      POSTGRES_USER: kafka_demo
+      # Dev-only default — do not reuse for any shared or production environment.
+      POSTGRES_PASSWORD: kafka_demo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kafka_demo -d kafka_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:8-alpine
+    container_name: redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   kafka-data:
+  postgres-data:
+  redis-data:

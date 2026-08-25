@@ -10,8 +10,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.web.client.RestClient;
 
+import java.time.Clock;
+
 @Configuration
 public class GeneralConfig {
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
+    }
 
     @Bean
     public static ObjectMapper objectMapper() {

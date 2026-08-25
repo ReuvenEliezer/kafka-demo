@@ -3,6 +3,7 @@ package com.reuven.kafka.demo.services;
 import com.reuven.kafka.demo.entities.MyEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
@@ -13,6 +14,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
 @Service
+@ConditionalOnProperty(name = "copy.consumer.strategy", havingValue = "inline", matchIfMissing = true)
 public class KafkaConsumer {
 
     public static final String LISTENER_ID = "myEventListener";

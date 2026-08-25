@@ -39,3 +39,72 @@ resilience4j:
         automatic-transition-from-open-to-half-open-enabled: true
         record-exceptions:
           - software.amazon.awssdk.core.exception.SdkClientException
+      s3Delivery:
+        sliding-window-size: 4
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 3s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - software.amazon.awssdk.core.exception.SdkClientException
+      providerDownload:
+        sliding-window-size: 4
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 3s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.io.IOException
+          - java.net.http.HttpTimeoutException
+
+# A test-classpath application.yaml replaces src/main/resources/application.yaml entirely rather
+# than merging with it (only one classpath:application.yaml resolves), so every copy.* default has
+# to be restated here too — not just the test-profile sizing overrides (quickstart.md
+# "Test-profile sizing"). Same reason aws.s3.* and resilience4j.* above are restated rather than
+# inherited.
+copy:
+  consumer:
+    strategy: inline
+    topic: recording-copy
+    group-id: recording-copy-group
+    batch:
+      max-records: 100
+      max-wait: 1s
+  backlog:
+    high-water-mark: 10000
+    low-water-mark: 5000
+    check-interval: 5s
+  delivery:
+    worker-concurrency: 4
+    poll-interval: 2s
+    max-attempts: 3
+    initial-backoff: 10s
+    max-backoff: 2s
+    claim-timeout: 5m
+  chunking:
+    threshold: 5MB
+    base-part-size: 5MB
+  checkpoint:
+    expiry: 60s
+    key-prefix: xfer
+  cleanup:
+    abandoned-upload-retention: 7d
+    scan-interval: 1h
+  size:
+    max-plausible-bytes: 5TB
+  provider:
+    base-url:
+    allowed-hosts: []
+    credential-renewal-margin: 5m
+    connect-timeout: 10s
+    read-timeout: 60s
+  notification:
+    path: /provider/notifications
+    secret: ${COPY_NOTIFICATION_SECRET:}
+    freshness-window: 5m
+    max-body-size: 1MB
+  destination:
+    bucket: ${aws.s3.bucket}
+    key-prefix: recordings

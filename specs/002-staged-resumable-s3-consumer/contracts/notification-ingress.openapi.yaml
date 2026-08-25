@@ -1,0 +1,203 @@
+openapi: 3.1.0
+info:
+  title: Provider Notification Ingress
+  version: 1.0.0
+  description: |
+    Public HTTPS endpoint that receives "recording finished" notifications from the third-party provider,
+    verifies them, and publishes one message per recording file to the copy topic — and nothing else.
+
+    Deliberately narrow. The handler performs no copying, no staging-store writes, and no provider callbacks
+    inline (FR-081), so that it answers within the provider's acknowledgement timeout (FR-074, SC-022) and can be
+    deployed, scaled, and secured independently of the consumer and delivery worker (FR-069).
+
+    In production the intended shape is a managed API gateway in front of a serverless handler. In this repository
+    it is a Spring `@RestController` in the same process; the spec states the requirement in terms of obligations,
+    not topology, so both satisfy it.
+
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: localhost:8080
+
+paths:
+  /provider/notifications:
+    post:
+      operationId: receiveNotification
+      summary: Receive, verify, and publish a provider notification
+      description: |
+        Handles two request shapes distinguished by `event`:
+
+        1. **`endpoint.url_validation`** — the one-time challenge issued when the endpoint is registered (FR-073).
+           Answered with the plain token and its HMAC.
+        2. **Recording-completed events** — verified, then fanned out to the topic as one message per recording
+           file (FR-077), published atomically (FR-078) and acknowledged only after the topic durably accepts
+           them (FR-079).
+
+        **Verification runs before any other processing** (FR-070) and, on failure, nothing is published (SC-021).
+      parameters:
+        - name: X-Provider-Signature
+          in: header
+          required: true
+          description: |
+            `v0={hex}` where `{hex}` is HMAC-SHA256 over `v0:{timestamp}:{rawBody}` using the shared secret.
+            Compared in constant time (FR-071). Computed over the **raw** request bytes, not a re-serialisation.
+          schema:
+            type: string
+            pattern: '^v0=[0-9a-f]{64}$'
+        - name: X-Provider-Request-Timestamp
+          in: header
+          required: true
+          description: |
+            Unix epoch seconds, covered by the signature **and** range-checked against the current clock
+            (FR-072). Signing alone does not stop replay of a genuine capture.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/UrlValidationRequest'
+                - $ref: '#/components/schemas/RecordingCompletedNotification'
+              discriminator:
+                propertyName: event
+      responses:
+        '200':
+          description: |
+            Validation challenge answered, or notification verified and every message durably published.
+            A 200 for a recording event is a promise that the topic accepted all of its messages.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/UrlValidationResponse'
+                  - $ref: '#/components/schemas/AcceptedResponse'
+        '401':
+          description: |
+            Signature missing, malformed, or incorrect. Nothing published. Permanent — the provider should not
+            retry (FR-080).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '400':
+          description: |
+            Body unparseable, or required fields absent. Permanently unprocessable; the provider should not
+            retry (FR-080).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '408':
+          description: |
+            Signed timestamp outside the configured freshness window (FR-072). Distinguished from 401 so that
+            genuine clock skew is diagnosable separately from a forged signature.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '503':
+          description: |
+            Verified, but the topic did not durably accept the messages. **Transient** — the provider must retry
+            (FR-079, FR-080). A publish failure must never be answered with success.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+components:
+  schemas:
+    UrlValidationRequest:
+      type: object
+      required: [event, payload]
+      properties:
+        event:
+          type: string
+          const: endpoint.url_validation
+        payload:
+          type: object
+          required: [plainToken]
+          properties:
+            plainToken: { type: string }
+
+    UrlValidationResponse:
+      type: object
+      required: [plainToken, encryptedToken]
+      properties:
+        plainToken: { type: string }
+        encryptedToken:
+          type: string
+          description: Hex HMAC-SHA256 of `plainToken` under the shared secret.
+
+    RecordingCompletedNotification:
+      type: object
+      required: [event, event_ts, payload]
+      properties:
+        event:
+          type: string
+          const: recording.completed
+        event_id:
+          type: string
+          description: Provider's identifier for this notification; propagated so downstream can detect provider retries (FR-076, SC-023).
+        event_ts:
+          type: integer
+          format: int64
+        payload:
+          type: object
+          required: [account_id, object]
+          properties:
+            account_id: { type: string }
+            object:
+              type: object
+              required: [uuid, recording_files]
+              properties:
+                uuid:
+                  type: string
+                  description: Session identifier. **Not** sufficient as a destination key — one session yields several files (FR-052).
+                topic: { type: string }
+                recording_files:
+                  type: array
+                  minItems: 1
+                  description: One published message per element (FR-077).
+                  items: { $ref: '#/components/schemas/RecordingFile' }
+
+    RecordingFile:
+      type: object
+      required: [id, download_url]
+      properties:
+        id:
+          type: string
+          description: Stable per-file identifier. The natural key of the staged item and the basis of the destination name (FR-052, FR-059).
+        file_type:
+          type: string
+          enum: [MP4, M4A, TRANSCRIPT, CHAT, CC, TIMELINE]
+        download_url:
+          type: string
+          format: uri
+          description: Host-allowlisted before any fetch (FR-062). Not a credential and not persisted.
+        file_size:
+          type: integer
+          format: int64
+          description: |
+            Declared size, attached to the published message as a header (FR-075) so the worker can pick its
+            upload path with no extra round trip (SC-010). A hint — may be absent or wrong (FR-048, FR-050).
+        recording_end: { type: string, format: date-time }
+
+    AcceptedResponse:
+      type: object
+      required: [accepted, published]
+      properties:
+        accepted: { type: boolean, const: true }
+        published:
+          type: integer
+          description: Number of messages published — equals `recording_files.length` (FR-078).
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [SIGNATURE_INVALID, TIMESTAMP_STALE, MALFORMED_NOTIFICATION, PUBLISH_FAILED]
+        message:
+          type: string
+          description: Never echoes the signature, the secret, or any download URL.

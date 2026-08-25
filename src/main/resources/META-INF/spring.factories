@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.reuven.kafka.demo.copy.config.StrategyProfileActivator
