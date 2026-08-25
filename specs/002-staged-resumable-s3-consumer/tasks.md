@@ -221,14 +221,14 @@ Single Spring Boot project: `src/main/java/com/reuven/kafka/demo/`, `src/test/ja
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T081 [P] [US4] Write `StrategyComparisonTest` in [copy/StrategyComparisonTest.java](../../src/test/java/com/reuven/kafka/demo/copy/StrategyComparisonTest.java) — quickstart S7: run each strategy in turn under an identical induced S3 outage and recovery, asserting the **contrast** (inline pauses and accrues topic lag; staged keeps consuming and accrues staged backlog) and that each delivers everything it acknowledged. Assert clean startup under both with no error attributable to the inactive one. **Do not assert object equality** — the two strategies carry different work (FR-005, SC-011, SC-012)
+- [X] T081 [P] [US4] Write `StrategyComparisonTest` in [copy/StrategyComparisonTest.java](../../src/test/java/com/reuven/kafka/demo/copy/StrategyComparisonTest.java) — quickstart S7: run each strategy in turn under an identical induced S3 outage and recovery, asserting the **contrast** (inline pauses and accrues topic lag; staged keeps consuming and accrues staged backlog) and that each delivers everything it acknowledged. Assert clean startup under both with no error attributable to the inactive one. **Do not assert object equality** — the two strategies carry different work (FR-005, SC-011, SC-012)
 
 ### Implementation for User Story 4
 
-- [ ] T082 [US4] Add `@ConditionalOnProperty(name="copy.consumer.strategy", havingValue="inline", matchIfMissing=true)` to [services/KafkaConsumer.java](../../src/main/java/com/reuven/kafka/demo/services/KafkaConsumer.java) — **this annotation and nothing else**; behaviour when active must stay byte-for-byte identical (FR-002, FR-003)
-- [ ] T083 [US4] Add the same conditional to [config/KafkaBackpressureController.java](../../src/main/java/com/reuven/kafka/demo/config/KafkaBackpressureController.java) — under the staged strategy nothing may pause the consumer on S3 health, or SC-004 is defeated (FR-020, research.md R7)
-- [ ] T084 [US4] Audit every staged-strategy component under [src/main/java/com/reuven/kafka/demo/copy/](../../src/main/java/com/reuven/kafka/demo/copy/) for its `@ConditionalOnProperty` guard and confirm a clean inline start creates no JPA, Redis, or worker beans (FR-004)
-- [ ] T085 [P] [US4] Document running each strategy in [README.md](../../README.md), including the behavioural contrast under an object-store outage — that contrast is the feature's justification
+- [X] T082 [US4] Add `@ConditionalOnProperty(name="copy.consumer.strategy", havingValue="inline", matchIfMissing=true)` to [services/KafkaConsumer.java](../../src/main/java/com/reuven/kafka/demo/services/KafkaConsumer.java) — **this annotation and nothing else**; behaviour when active must stay byte-for-byte identical (FR-002, FR-003)
+- [X] T083 [US4] Add the same conditional to [config/KafkaBackpressureController.java](../../src/main/java/com/reuven/kafka/demo/config/KafkaBackpressureController.java) — under the staged strategy nothing may pause the consumer on S3 health, or SC-004 is defeated (FR-020, research.md R7)
+- [X] T084 [US4] Audit every staged-strategy component under [src/main/java/com/reuven/kafka/demo/copy/](../../src/main/java/com/reuven/kafka/demo/copy/) for its `@ConditionalOnProperty` guard and confirm a clean inline start creates no JPA, Redis, or worker beans (FR-004)
+- [X] T085 [P] [US4] Document running each strategy in [README.md](../../README.md), including the behavioural contrast under an object-store outage — that contrast is the feature's justification
 
 **Checkpoint**: Both strategies coexist as runnable, comparable examples.
 
@@ -300,13 +300,13 @@ Single Spring Boot project: `src/main/java/com/reuven/kafka/demo/`, `src/test/ja
 
 ## Phase 11: Polish & Cross-Cutting Concerns
 
-- [ ] T100 [P] Add `CheckpointHealthIndicator` in [copy/checkpoint/CheckpointHealthIndicator.java](../../src/main/java/com/reuven/kafka/demo/copy/checkpoint/CheckpointHealthIndicator.java) and the `copy.checkpoint.errors` counter — sustained Redis unavailability costs only bytes, but it silently turns every large transfer non-resumable, so it must be visible (FR-058)
-- [ ] T101 [P] Verify across [src/main/java/com/reuven/kafka/demo/](../../src/main/java/com/reuven/kafka/demo/) that no credential, secret, or signature appears in any log line at any level, and that no `System.out`/`err` exists in production paths
-- [ ] T102 [P] Confirm across [src/main/java/com/reuven/kafka/demo/](../../src/main/java/com/reuven/kafka/demo/) that every `@RestController` returns records and never entities, and that no bare `RuntimeException`/`IllegalStateException` is thrown anywhere in `copy/`
-- [ ] T103 [P] Document the architecture, the two strategies, and the store-responsibility split in [README.md](../../README.md), linking [plan.md](./plan.md) and [research.md](./research.md)
-- [ ] T104 Add PostgreSQL and Redis readiness to the CI workflow in [.github/workflows/github-actions.yml](../../.github/workflows/github-actions.yml) if `docker compose --wait` proves insufficient
+- [X] T100 [P] Add `CheckpointHealthIndicator` in [copy/checkpoint/CheckpointHealthIndicator.java](../../src/main/java/com/reuven/kafka/demo/copy/checkpoint/CheckpointHealthIndicator.java) and the `copy.checkpoint.errors` counter — sustained Redis unavailability costs only bytes, but it silently turns every large transfer non-resumable, so it must be visible (FR-058)
+- [X] T101 [P] Verify across [src/main/java/com/reuven/kafka/demo/](../../src/main/java/com/reuven/kafka/demo/) that no credential, secret, or signature appears in any log line at any level, and that no `System.out`/`err` exists in production paths
+- [X] T102 [P] Confirm across [src/main/java/com/reuven/kafka/demo/](../../src/main/java/com/reuven/kafka/demo/) that every `@RestController` returns records and never entities, and that no bare `RuntimeException`/`IllegalStateException` is thrown anywhere in `copy/`
+- [X] T103 [P] Document the architecture, the two strategies, and the store-responsibility split in [README.md](../../README.md), linking [plan.md](./plan.md) and [research.md](./research.md)
+- [X] T104 Add PostgreSQL and Redis readiness to the CI workflow in [.github/workflows/github-actions.yml](../../.github/workflows/github-actions.yml) if `docker compose --wait` proves insufficient
 - [ ] T105 Run the full suite with `mvn clean install` and confirm all 15 quickstart scenarios pass, covering all 23 success criteria
-- [ ] T106 Record the AWS SDK bump and the two new infrastructure dependencies in [README.md](../../README.md), noting the Lombok/log4j2 idiom split and that converting the five pre-existing files is a deliberate one-commit follow-up (research.md R21)
+- [X] T106 Record the AWS SDK bump and the two new infrastructure dependencies in [README.md](../../README.md), noting the Lombok/log4j2 idiom split and that converting the five pre-existing files is a deliberate one-commit follow-up (research.md R21)
 
 ---
 
