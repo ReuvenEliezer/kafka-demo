@@ -4,46 +4,59 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+# Least-privilege, not write-all: dorny/test-reporter needs `checks: write` to publish
+# a report, and `pull-requests: write` so it can annotate the PR itself. This also covers
+# dependabot-opened PRs (.github/dependabot.yml) - those run with a read-only GITHUB_TOKEN
+# by default, so the report wouldn't appear at all without explicitly granting this here.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
-    permissions: write-all #for dependabot auto PR - create a test report
     runs-on: ubuntu-latest
-    env:
-      COMPOSE_FILE: docker-compose.yml
     steps:
-      - uses: actions/checkout@v4.1.7
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4.2.2
+      - name: Checkout
+        uses: actions/checkout@v6
+      # java.version in pom.xml is 25, so CI must run on a JDK that supports
+      # `--release 25` - JDK 21 produced "release version 25 not supported" and
+      # failed the compile step.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
         with:
-          java-version: '21'
-          distribution: 'corretto'
-      - name: "docker compose up"
-        run: docker compose -f docker-compose.yml up -d --wait
-      - name: Build by Maven & Run Tests
-        run: mvn clean install
-      - name: kafka-demo JUnit Test Report
-        uses: dorny/test-reporter@v1.9.1 #{owner}/{repository}@{ref}
-        if: (success() || failure())
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      # No `docker compose up` here: every integration test starts its own
+      # Testcontainers stack in-process (Kafka, PostgreSQL, Redis, LocalStack -
+      # random ports, no external orchestration). We only need the Docker daemon
+      # to be reachable.
+      - name: Verify Docker is reachable (Testcontainers needs this)
+        run: docker info
+      # Separate build step from test step (mirrors local `mvn install` + `mvn test`):
+      # a compile/packaging failure shows as its own red step, distinct from a test
+      # failure, instead of both being buried inside one combined run.
+      - name: Build (compile & package, skip tests)
+        run: mvn -B clean install -DskipTests
+      # -fae (fail-at-end): surfaces every failing test class in one run, not just
+      # the first.
+      - name: Run tests
+        run: mvn -B -fae test
+      - name: Test report - kafka-demo
+        uses: dorny/test-reporter@v3
+        if: success() || failure()
         with:
-          name: Tests  #for analysis tests report
-          path: target/surefire-reports/*.xml
+          name: Tests
+          path: 'target/surefire-reports/*.xml'
           reporter: java-junit
           fail-on-error: true
-
-      - name: Generate build number
-        id: buildnumber
-        uses: einaregilsson/build-number@v3
+      - name: Upload raw surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{secrets.github_token}}
-
-      # Now you can pass ${{ steps.buildnumber.outputs.build_number }} to the next steps.
-      - name: Another step as an example
-        uses: actions/hello-world-docker-action@v1
-        with:
-          who-to-greet: ${{ steps.buildnumber.outputs.build_number }}
-      - name: Output Run ID
-        run: echo ${{ github.run_id }}
-      - name: Output Run Number
-        run: echo ${{ github.run_number }}
-      - name: Output Run Attempt
-        run: echo ${{ github.run_attempt }}
+          name: surefire-reports
+          path: '**/target/surefire-reports/*.txt'
+          retention-days: 7
