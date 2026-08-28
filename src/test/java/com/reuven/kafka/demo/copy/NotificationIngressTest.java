@@ -1,12 +1,13 @@
 package com.reuven.kafka.demo.copy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import com.reuven.kafka.demo.copy.support.CopyIntegrationTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,7 @@ import static org.awaitility.Awaitility.await;
  * that those two are not guaranteed to be byte-identical (key ordering, whitespace).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 class NotificationIngressTest extends CopyIntegrationTestBase {
 
     @Autowired

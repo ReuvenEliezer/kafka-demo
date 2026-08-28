@@ -3,8 +3,8 @@ package com.reuven.kafka.demo.copy.support;
 import com.redis.testcontainers.RedisContainer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.testcontainers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
@@ -47,8 +47,8 @@ public abstract class CopyIntegrationTestBase {
     protected static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka:3.7.1"));
 
     @Container
-    protected static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:17-alpine"));
+    protected static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 
     @Container
     protected static final RedisContainer REDIS =
@@ -57,7 +57,7 @@ public abstract class CopyIntegrationTestBase {
     @Container
     protected static final LocalStackContainer LOCALSTACK =
             new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.7"))
-                    .withServices(LocalStackContainer.Service.S3);
+                    .withServices("s3");
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry) {
@@ -71,6 +71,6 @@ public abstract class CopyIntegrationTestBase {
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 
         registry.add("aws.s3.region", LOCALSTACK::getRegion);
-        registry.add("aws.s3.endpoint", () -> LOCALSTACK.getEndpointOverride(LocalStackContainer.Service.S3).toString());
+        registry.add("aws.s3.endpoint", () -> LOCALSTACK.getEndpoint().toString());
     }
 }
