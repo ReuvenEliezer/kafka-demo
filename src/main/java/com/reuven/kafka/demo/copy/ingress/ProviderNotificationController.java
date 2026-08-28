@@ -1,7 +1,8 @@
 package com.reuven.kafka.demo.copy.ingress;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.reuven.kafka.demo.copy.ingress.dto.AcceptedResponse;
 import com.reuven.kafka.demo.copy.ingress.dto.ProviderNotification;
 import com.reuven.kafka.demo.copy.ingress.dto.UrlValidationRequest;
@@ -113,7 +114,7 @@ public class ProviderNotificationController {
     private <T> T convert(JsonNode root, Class<T> type) {
         try {
             return objectMapper.treeToValue(root, type);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new MalformedNotificationException("Notification body did not match the expected shape");
         }
     }
@@ -121,7 +122,7 @@ public class ProviderNotificationController {
     private JsonNode parseJson(byte[] rawBody) {
         try {
             return objectMapper.readTree(rawBody);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             throw new MalformedNotificationException("Notification body is not valid JSON");
         }
     }

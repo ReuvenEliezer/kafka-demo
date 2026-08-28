@@ -1,6 +1,7 @@
 package com.reuven.kafka.demo.copy.support;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -45,7 +46,7 @@ public class FakeProviderServer implements Closeable {
 
     private final HttpServer httpServer;
     private final ExecutorService executor;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final Clock clock;
     private final Map<String, RecordingState> recordings = new ConcurrentHashMap<>();
 

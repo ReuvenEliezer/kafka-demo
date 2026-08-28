@@ -1,6 +1,6 @@
 package com.reuven.kafka.demo.copy;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import com.reuven.kafka.demo.copy.support.CopyIntegrationTestBase;
 import org.junit.jupiter.api.Test;

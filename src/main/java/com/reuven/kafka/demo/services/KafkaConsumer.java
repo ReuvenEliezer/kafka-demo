@@ -36,7 +36,7 @@ public class KafkaConsumer {
     @RetryableTopic(
             attempts = "3",
 //            kafkaTemplate = "kafkaTemplate",
-            backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2),
+            backOff = @org.springframework.kafka.annotation.BackOff(delay = 1000, multiplier = 2),
             dltTopicSuffix = "-dlt",
 //            dltTopicSuffix = ".DLT",
             autoCreateTopics = "true"
