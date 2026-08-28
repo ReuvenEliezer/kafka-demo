@@ -11,19 +11,22 @@ import com.reuven.kafka.demo.copy.staging.ReleaseState;
 import com.reuven.kafka.demo.copy.staging.StagedItem;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -54,8 +57,9 @@ public class DeliveryWorker implements SmartLifecycle {
     private final Clock clock;
     private final CopyMetrics metrics;
     private final String workerId = "delivery-worker-" + UUID.randomUUID();
+    private final AsyncTaskExecutor executor;
 
-    private ExecutorService executor;
+    private final List<Future<?>> loopFutures = new ArrayList<>();
     private volatile boolean running;
 
     public DeliveryWorker(StagedItemRepository repository,
@@ -66,7 +70,8 @@ public class DeliveryWorker implements SmartLifecycle {
                            SizeResolver sizeResolver,
                            CopyProperties properties,
                            Clock clock,
-                           CopyMetrics metrics) {
+                           CopyMetrics metrics,
+                           @Qualifier("copyDeliveryTaskExecutor") AsyncTaskExecutor executor) {
         this.repository = repository;
         this.uploaderRegistry = uploaderRegistry;
         this.pathSelector = pathSelector;
@@ -76,6 +81,7 @@ public class DeliveryWorker implements SmartLifecycle {
         this.properties = properties;
         this.clock = clock;
         this.metrics = metrics;
+        this.executor = executor;
     }
 
     @Override
@@ -87,22 +93,16 @@ public class DeliveryWorker implements SmartLifecycle {
             // directly) — no background threads at all.
             return;
         }
-        executor = Executors.newFixedThreadPool(concurrency, runnable -> {
-            Thread thread = new Thread(runnable, workerId + "-" + Thread.activeCount());
-            thread.setDaemon(true);
-            return thread;
-        });
         for (int i = 0; i < concurrency; i++) {
-            executor.submit(this::runLoop);
+            loopFutures.add(executor.submit(this::runLoop));
         }
     }
 
     @Override
     public void stop() {
         running = false;
-        if (executor != null) {
-            executor.shutdownNow();
-        }
+        loopFutures.forEach(future -> future.cancel(true));
+        loopFutures.clear();
     }
 
     @Override

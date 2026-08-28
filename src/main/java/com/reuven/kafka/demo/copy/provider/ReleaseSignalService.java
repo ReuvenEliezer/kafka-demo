@@ -8,8 +8,10 @@ import com.reuven.kafka.demo.copy.staging.StagedItem;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +19,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 
 /**
  * Signals the provider that it may discard its source copy — the one irreversible action in the
@@ -38,20 +40,23 @@ public class ReleaseSignalService implements SmartLifecycle {
     private final CopyProperties properties;
     private final CopyMetrics metrics;
     private final Clock clock;
+    private final ThreadPoolTaskScheduler scheduler;
 
-    private Thread thread;
+    private ScheduledFuture<?> scheduledTask;
     private volatile boolean running;
 
     public ReleaseSignalService(StagedItemRepository repository,
                                  ProviderClient providerClient,
                                  CopyProperties properties,
                                  CopyMetrics metrics,
-                                 Clock clock) {
+                                 Clock clock,
+                                 @Qualifier("copyPollerTaskScheduler") ThreadPoolTaskScheduler scheduler) {
         this.repository = repository;
         this.providerClient = providerClient;
         this.properties = properties;
         this.metrics = metrics;
         this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     @PostConstruct
@@ -63,16 +68,15 @@ public class ReleaseSignalService implements SmartLifecycle {
     @Override
     public void start() {
         running = true;
-        thread = new Thread(this::runLoop, "release-signal-service");
-        thread.setDaemon(true);
-        thread.start();
+        scheduledTask = scheduler.scheduleWithFixedDelay(this::runOnce, properties.delivery().pollInterval());
     }
 
     @Override
     public void stop() {
         running = false;
-        if (thread != null) {
-            thread.interrupt();
+        if (scheduledTask != null) {
+            scheduledTask.cancel(true);
+            scheduledTask = null;
         }
     }
 
@@ -81,14 +85,11 @@ public class ReleaseSignalService implements SmartLifecycle {
         return running;
     }
 
-    private void runLoop() {
-        while (running) {
-            try {
-                processPendingReleases();
-            } catch (Exception e) {
-                log.error("Release signal scan failed", e);
-            }
-            sleepQuietly(properties.delivery().pollInterval());
+    private void runOnce() {
+        try {
+            processPendingReleases();
+        } catch (Exception e) {
+            log.error("Release signal scan failed", e);
         }
     }
 
@@ -128,13 +129,5 @@ public class ReleaseSignalService implements SmartLifecycle {
         }
         metrics.recordReleaseOutcome(outcome.name());
         repository.save(item);
-    }
-
-    private static void sleepQuietly(Duration duration) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

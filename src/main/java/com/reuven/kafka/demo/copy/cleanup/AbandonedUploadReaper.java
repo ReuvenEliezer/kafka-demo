@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -16,9 +17,8 @@ import software.amazon.awssdk.services.s3.model.Part;
 import software.amazon.awssdk.services.s3.paginators.ListMultipartUploadsIterable;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -40,18 +40,21 @@ public class AbandonedUploadReaper implements SmartLifecycle {
 
     private final AtomicLong unfinishedCount = new AtomicLong();
     private final AtomicLong unfinishedBytes = new AtomicLong();
+    private final ThreadPoolTaskScheduler scheduler;
 
-    private Thread thread;
+    private ScheduledFuture<?> scheduledTask;
     private volatile boolean running;
 
     public AbandonedUploadReaper(@Qualifier("deliveryS3Client") S3Client deliveryS3Client,
                                   CopyProperties properties,
                                   CopyMetrics metrics,
-                                  Clock clock) {
+                                  Clock clock,
+                                  @Qualifier("copyPollerTaskScheduler") ThreadPoolTaskScheduler scheduler) {
         this.deliveryS3Client = deliveryS3Client;
         this.properties = properties;
         this.metrics = metrics;
         this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     @PostConstruct
@@ -67,16 +70,15 @@ public class AbandonedUploadReaper implements SmartLifecycle {
     @Override
     public void start() {
         running = true;
-        thread = new Thread(this::runLoop, "abandoned-upload-reaper");
-        thread.setDaemon(true);
-        thread.start();
+        scheduledTask = scheduler.scheduleWithFixedDelay(this::runOnce, properties.cleanup().scanInterval());
     }
 
     @Override
     public void stop() {
         running = false;
-        if (thread != null) {
-            thread.interrupt();
+        if (scheduledTask != null) {
+            scheduledTask.cancel(true);
+            scheduledTask = null;
         }
     }
 
@@ -85,14 +87,11 @@ public class AbandonedUploadReaper implements SmartLifecycle {
         return running;
     }
 
-    private void runLoop() {
-        while (running) {
-            try {
-                scan();
-            } catch (Exception e) {
-                log.error("Abandoned upload scan failed", e);
-            }
-            sleepQuietly(properties.cleanup().scanInterval());
+    private void runOnce() {
+        try {
+            scan();
+        } catch (Exception e) {
+            log.error("Abandoned upload scan failed", e);
         }
     }
 
@@ -135,14 +134,6 @@ public class AbandonedUploadReaper implements SmartLifecycle {
                     upload.key(), upload.uploadId(), upload.initiated());
         } catch (SdkException e) {
             log.error("Failed to abort abandoned multipart upload {} ({}): {}", upload.uploadId(), upload.key(), e.getMessage());
-        }
-    }
-
-    private static void sleepQuietly(Duration duration) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
     }
 }

@@ -5,16 +5,17 @@ import com.reuven.kafka.demo.copy.staging.DeliveryState;
 import com.reuven.kafka.demo.copy.staging.StagedItem;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 
 /**
  * Releases claims whose holder has stopped making progress (FR-017) — a worker killed mid-transfer
@@ -30,29 +31,33 @@ public class ClaimReaper implements SmartLifecycle {
     private final StagedItemRepository repository;
     private final CopyProperties properties;
     private final Clock clock;
+    private final ThreadPoolTaskScheduler scheduler;
 
-    private Thread thread;
+    private ScheduledFuture<?> scheduledTask;
     private volatile boolean running;
 
-    public ClaimReaper(StagedItemRepository repository, CopyProperties properties, Clock clock) {
+    public ClaimReaper(StagedItemRepository repository,
+                        CopyProperties properties,
+                        Clock clock,
+                        @Qualifier("copyPollerTaskScheduler") ThreadPoolTaskScheduler scheduler) {
         this.repository = repository;
         this.properties = properties;
         this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     @Override
     public void start() {
         running = true;
-        thread = new Thread(this::runLoop, "claim-reaper");
-        thread.setDaemon(true);
-        thread.start();
+        scheduledTask = scheduler.scheduleWithFixedDelay(this::runOnce, properties.delivery().pollInterval());
     }
 
     @Override
     public void stop() {
         running = false;
-        if (thread != null) {
-            thread.interrupt();
+        if (scheduledTask != null) {
+            scheduledTask.cancel(true);
+            scheduledTask = null;
         }
     }
 
@@ -61,14 +66,11 @@ public class ClaimReaper implements SmartLifecycle {
         return running;
     }
 
-    private void runLoop() {
-        while (running) {
-            try {
-                reapExpiredClaims();
-            } catch (Exception e) {
-                log.error("Claim reaper scan failed", e);
-            }
-            sleepQuietly(properties.delivery().pollInterval());
+    private void runOnce() {
+        try {
+            reapExpiredClaims();
+        } catch (Exception e) {
+            log.error("Claim reaper scan failed", e);
         }
     }
 
@@ -95,14 +97,6 @@ public class ClaimReaper implements SmartLifecycle {
                 item.setNextAttemptAt(now.plus(BackoffCalculator.backoffFor(properties, attempts)));
             }
             repository.save(item);
-        }
-    }
-
-    private static void sleepQuietly(Duration duration) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
     }
 }

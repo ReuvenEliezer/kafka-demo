@@ -16,11 +16,10 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.zip.CRC32C;
 
 /**
@@ -60,16 +59,17 @@ public class SingleRequestUploader implements ObjectUploader {
             BoundedInputStream bounded = new BoundedInputStream(download.body(), effectiveSize);
             CountingChecksumInputStream measured = new CountingChecksumInputStream(bounded, localChecksum);
 
+            // No .checksumAlgorithm(...) — S3-side flexible checksums proved unreliable against real
+            // LocalStack (see ChunkedUploader's class javadoc). The CRC32C accumulated locally over
+            // the streamed bytes is the audit value we keep; integrity is gated on HeadObject size.
             PutObjectRequest putRequest = PutObjectRequest.builder()
                     .bucket(item.getDestinationBucket())
                     .key(item.getDestinationKey())
                     .contentType(item.getContentType())
-                    .checksumAlgorithm(ChecksumAlgorithm.CRC32_C)
                     .build();
 
-            PutObjectResponse response;
             try {
-                response = deliveryS3Client.putObject(putRequest, RequestBody.fromContentProvider(() -> measured, effectiveSize, "application/octet-stream"));
+                deliveryS3Client.putObject(putRequest, RequestBody.fromContentProvider(() -> measured, effectiveSize, "application/octet-stream"));
             } catch (SdkException e) {
                 throw new S3DeliveryUnavailableException(
                         "PutObject failed for %s/%s".formatted(item.getDestinationBucket(), item.getDestinationKey()), e);
@@ -94,10 +94,21 @@ public class SingleRequestUploader implements ObjectUploader {
                                 .formatted(effectiveSize, item.getRecordingFileId(), correctedSize));
             }
 
-            return new UploadOutcome(response.checksumCRC32C(), effectiveSize);
+            String localCrc32c = base64Crc32c(measured.checksumValue());
+            return new UploadOutcome(localCrc32c, effectiveSize);
         } catch (IOException e) {
             throw new ProviderUnavailableException("Failed closing provider download for " + item.getRecordingFileId(), e);
         }
+    }
+
+    private static String base64Crc32c(long value) {
+        byte[] bytes = {
+                (byte) (value >>> 24),
+                (byte) (value >>> 16),
+                (byte) (value >>> 8),
+                (byte) value
+        };
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     private void deleteQuietly(String bucket, String key) {

@@ -5,16 +5,18 @@ import com.reuven.kafka.demo.copy.observability.CopyMetrics;
 import com.reuven.kafka.demo.copy.staging.StagedItemRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledFuture;
 
 /**
  * Stops and resumes intake on staged-backlog pressure — the <b>only</b> thing that pauses the
@@ -32,8 +34,9 @@ public class BacklogGovernor implements SmartLifecycle {
     private final CopyProperties properties;
     private final CopyMetrics metrics;
     private final Clock clock;
+    private final ThreadPoolTaskScheduler scheduler;
 
-    private Thread thread;
+    private ScheduledFuture<?> scheduledTask;
     private volatile boolean running;
     private volatile boolean paused;
 
@@ -41,12 +44,14 @@ public class BacklogGovernor implements SmartLifecycle {
                             KafkaListenerEndpointRegistry listenerRegistry,
                             CopyProperties properties,
                             CopyMetrics metrics,
-                            Clock clock) {
+                            Clock clock,
+                            @Qualifier("copyPollerTaskScheduler") ThreadPoolTaskScheduler scheduler) {
         this.repository = repository;
         this.listenerRegistry = listenerRegistry;
         this.properties = properties;
         this.metrics = metrics;
         this.clock = clock;
+        this.scheduler = scheduler;
     }
 
     @PostConstruct
@@ -58,16 +63,15 @@ public class BacklogGovernor implements SmartLifecycle {
     @Override
     public void start() {
         running = true;
-        thread = new Thread(this::runLoop, "backlog-governor");
-        thread.setDaemon(true);
-        thread.start();
+        scheduledTask = scheduler.scheduleWithFixedDelay(this::runOnce, properties.backlog().checkInterval());
     }
 
     @Override
     public void stop() {
         running = false;
-        if (thread != null) {
-            thread.interrupt();
+        if (scheduledTask != null) {
+            scheduledTask.cancel(true);
+            scheduledTask = null;
         }
     }
 
@@ -76,14 +80,11 @@ public class BacklogGovernor implements SmartLifecycle {
         return running;
     }
 
-    private void runLoop() {
-        while (running) {
-            try {
-                check();
-            } catch (Exception e) {
-                log.error("Backlog governor check failed", e);
-            }
-            sleepQuietly(properties.backlog().checkInterval());
+    private void runOnce() {
+        try {
+            check();
+        } catch (Exception e) {
+            log.error("Backlog governor check failed", e);
         }
     }
 
@@ -111,13 +112,5 @@ public class BacklogGovernor implements SmartLifecycle {
         return repository.findOldestUndeliveredCreatedAt()
                 .map(createdAt -> (double) Duration.between(createdAt, Instant.now(clock)).toSeconds())
                 .orElse(0.0);
-    }
-
-    private static void sleepQuietly(Duration duration) {
-        try {
-            TimeUnit.MILLISECONDS.sleep(duration.toMillis());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
     }
 }

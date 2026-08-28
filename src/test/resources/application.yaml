@@ -1,6 +1,9 @@
 spring:
   application:
     name: kafka-demo-test
+  output:
+    ansi:
+      enabled: always
   kafka:
     admin:
       auto-create: true
